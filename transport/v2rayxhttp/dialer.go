@@ -79,8 +79,11 @@ func (c *DefaultDialerClient) OpenStream(ctx context.Context, url string, sessio
 		method = c.options.GetNormalizedUplinkHTTPMethod() // stream-up/one
 	}
 	reqCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
-	req, _ := http.NewRequestWithContext(reqCtx, method, url, body)
-	FillStreamRequest(req, sessionId, "", c.options)
+	req, err := newStreamRequest(reqCtx, method, url, body, sessionId, c.options)
+	if err != nil {
+		cancel()
+		return
+	}
 	wrc = &WaitReadCloser{wait: done.New(), Cancel: cancel}
 	go func() {
 		var resp *http.Response

@@ -159,6 +159,14 @@ func (c *Client) DialContext(ctx context.Context) (net.Conn, error) {
 			}
 		},
 	}
+	cleanupOnError := func() {
+		conn.onClose()
+		_ = reader.Close()
+		_ = writer.Close()
+		if conn.reader != nil {
+			_ = conn.reader.Close()
+		}
+	}
 	var err error
 	if mode == "stream-one" {
 		requestURL.Path = options.GetNormalizedPath()
@@ -166,7 +174,8 @@ func (c *Client) DialContext(ctx context.Context) (net.Conn, error) {
 			xmuxClient.LeftRequests.Add(-1)
 		}
 		conn.reader, conn.remoteAddr, conn.localAddr, err = httpClient.OpenStream(ctx, requestURL.String(), sessionId, reader, false)
-		if err != nil { // browser dialer only
+		if err != nil {
+			cleanupOnError()
 			return nil, err
 		}
 		return &conn, nil
@@ -175,7 +184,8 @@ func (c *Client) DialContext(ctx context.Context) (net.Conn, error) {
 			xmuxClient2.LeftRequests.Add(-1)
 		}
 		conn.reader, conn.remoteAddr, conn.localAddr, err = httpClient2.OpenStream(ctx, requestURL2.String(), sessionId, nil, false)
-		if err != nil { // browser dialer only
+		if err != nil {
+			cleanupOnError()
 			return nil, err
 		}
 	}
@@ -184,7 +194,8 @@ func (c *Client) DialContext(ctx context.Context) (net.Conn, error) {
 			xmuxClient.LeftRequests.Add(-1)
 		}
 		_, _, _, err = httpClient.OpenStream(ctx, requestURL.String(), sessionId, reader, true)
-		if err != nil { // browser dialer only
+		if err != nil {
+			cleanupOnError()
 			return nil, err
 		}
 		return &conn, nil
